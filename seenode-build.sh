@@ -23,6 +23,9 @@ export PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET:-dummy}
 SERVER_PID=$!
 sleep 2
 
+echo "=== Installing JS dependencies ==="
+npm ci
+
 echo "=== Building frontend (Next.js) ==="
 API_URL=http://localhost:3001 npm run build
 

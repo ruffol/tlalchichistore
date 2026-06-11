@@ -36,7 +36,7 @@ func NewRouter(
 
 	if frontendDir != "" {
 		fs := http.FileServer(http.Dir(frontendDir))
-		mainMux.Handle("GET /", fs)
+		mainMux.Handle("/", fs)
 	}
 
 	return mainMux
