@@ -4,8 +4,12 @@ import { VariantSelector } from "@/components/VariantSelector";
 import { apiFetch } from "@/lib/api";
 
 export async function generateStaticParams() {
-  const productos = await apiFetch<any[]>("/productos");
-  return productos.map((p: any) => ({ slug: p.slug }));
+  try {
+    const productos = await apiFetch<any[]>("/productos");
+    return productos.map((p: any) => ({ slug: p.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
