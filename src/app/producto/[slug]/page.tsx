@@ -6,9 +6,12 @@ import { apiFetch } from "@/lib/api";
 export async function generateStaticParams() {
   try {
     const productos = await apiFetch<any[]>("/productos");
-    return productos.map((p: any) => ({ slug: p.slug }));
+    if (productos.length > 0) {
+      return productos.map((p: any) => ({ slug: p.slug }));
+    }
+    return [{ slug: "_placeholder" }];
   } catch {
-    return [];
+    return [{ slug: "_placeholder" }];
   }
 }
 
