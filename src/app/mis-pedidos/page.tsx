@@ -1,7 +1,5 @@
 import { MisPedidosClient } from "./MisPedidosClient";
 
-export const dynamic = "force-dynamic";
-
 export const metadata = {
   title: "Mis Pedidos — Tlalchichi777",
   description: "Consulta el estado de tus pedidos de artesanías colimenses.",

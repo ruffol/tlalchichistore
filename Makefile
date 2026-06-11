@@ -1,19 +1,17 @@
-.PHONY: dev-backend dev-frontend dev build docker-up docker-build
+.PHONY: dev-backend dev-frontend dev build docker-build docker-up docker-down cli-migrate cli-seed cli-export
 
 # Go backend
 dev-backend:
 	cd backend && go run ./cmd/server
 
-# Next.js frontend
+# Next.js (static export dev)
 dev-frontend:
 	npm run dev
 
-# Run both in parallel
-dev:
-	@trap 'kill 0' EXIT; \
-		$(MAKE) dev-backend & \
-		$(MAKE) dev-frontend & \
-		wait
+# Build everything locally
+build:
+	cd backend && go build -o ../bin/market-server ./cmd/server
+	npm run build
 
 # Docker
 docker-build:
@@ -34,12 +32,3 @@ cli-seed:
 
 cli-export:
 	cd backend && go run ./cmd/cli export
-
-# Build binaries
-build-server:
-	cd backend && go build -o ../bin/market-server ./cmd/server
-
-build-cli:
-	cd backend && go build -o ../bin/market ./cmd/cli
-
-build-all: build-server build-cli

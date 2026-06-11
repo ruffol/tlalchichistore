@@ -1,8 +1,6 @@
 import { CatalogoFiltros } from "@/components/CatalogoFiltros";
 import { apiFetch } from "@/lib/api";
 
-export const dynamic = "force-dynamic";
-
 export const metadata = {
   title: "Catálogo — Tlalchichi",
   description: "Explora nuestra colección de artesanías colimenses auténticas.",

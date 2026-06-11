@@ -1,18 +1,36 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: market
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-market}
+      POSTGRES_DB: market
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "market"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   market:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
       - "8080:8080"
-    volumes:
-      - market_data:/data
     environment:
+      - DATABASE_URL=postgres://market:${PG_PASSWORD:-market}@db:5432/market?sslmode=disable
       - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
       - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
       - PAYPAL_MODE=${PAYPAL_MODE:-sandbox}
       - ENVIO_USD=${ENVIO_USD:-5}
       - APP_URL=${APP_URL:-http://localhost:8080}
+      - PORT=8080
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
@@ -21,4 +39,4 @@ services:
       retries: 3
 
 volumes:
-  market_data:
+  pg_data:

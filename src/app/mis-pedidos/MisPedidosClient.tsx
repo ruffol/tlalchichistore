@@ -36,7 +36,11 @@ export function MisPedidosClient() {
     setError("");
     setPedidos(null);
     try {
-      const res = await fetch(`/api/pedidos?email=${encodeURIComponent(email)}`);
+      const res = await fetch("/api/v1/pedidos/buscar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
       if (!res.ok) throw new Error("Error al buscar pedidos");
       const data = await res.json();
       setPedidos(data);

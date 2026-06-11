@@ -12,33 +12,32 @@ func NewRouter(
 	frontendDir string,
 	allowedOrigins []string,
 ) http.Handler {
-	mux := http.NewServeMux()
+	apiMux := http.NewServeMux()
 
-	// API v1
-	mux.HandleFunc("GET /api/v1/categorias", categorias.List)
+	apiMux.HandleFunc("GET /api/v1/categorias", categorias.List)
 
-	mux.HandleFunc("GET /api/v1/productos", productos.List)
-	mux.HandleFunc("GET /api/v1/productos/{slug}", productos.Get)
+	apiMux.HandleFunc("GET /api/v1/productos", productos.List)
+	apiMux.HandleFunc("GET /api/v1/productos/{slug}", productos.Get)
 
-	mux.HandleFunc("POST /api/v1/pedidos/buscar", pedidos.Buscar)
+	apiMux.HandleFunc("POST /api/v1/pedidos/buscar", pedidos.Buscar)
 
-	mux.HandleFunc("POST /api/v1/paypal/create-order", paypal.CreateOrder)
-	mux.HandleFunc("POST /api/v1/paypal/capture-order", paypal.CaptureOrder)
+	apiMux.HandleFunc("POST /api/v1/paypal/create-order", paypal.CreateOrder)
+	apiMux.HandleFunc("POST /api/v1/paypal/capture-order", paypal.CaptureOrder)
 
-	// Health
-	mux.HandleFunc("GET /api/v1/health", Health)
+	apiMux.HandleFunc("GET /api/v1/health", Health)
 
-	// Static files (Next.js build output)
+	var api http.Handler = apiMux
+	api = LoggerMiddleware(api)
+	api = CORSMiddleware(allowedOrigins)(api)
+	api = JSONMiddleware(api)
+
+	mainMux := http.NewServeMux()
+	mainMux.Handle("/api/v1/", api)
+
 	if frontendDir != "" {
 		fs := http.FileServer(http.Dir(frontendDir))
-		mux.Handle("GET /", fs)
+		mainMux.Handle("GET /", fs)
 	}
 
-	// Middleware chain
-	var h http.Handler = mux
-	h = LoggerMiddleware(h)
-	h = CORSMiddleware(allowedOrigins)(h)
-	h = JSONMiddleware(h)
-
-	return h
+	return mainMux
 }

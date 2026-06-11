@@ -3,7 +3,10 @@ import Image from "next/image";
 import { VariantSelector } from "@/components/VariantSelector";
 import { apiFetch } from "@/lib/api";
 
-export const dynamic = "force-dynamic";
+export async function generateStaticParams() {
+  const productos = await apiFetch<any[]>("/productos");
+  return productos.map((p: any) => ({ slug: p.slug }));
+}
 
 export async function generateMetadata({
   params,

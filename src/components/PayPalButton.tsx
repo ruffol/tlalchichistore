@@ -37,7 +37,7 @@ export function PayPalButton({ items }: PayPalButtonProps) {
           style={{ layout: "vertical", shape: "rect", height: 48 }}
           createOrder={async () => {
             setError(null);
-            const res = await fetch("/api/create-paypal-order", {
+            const res = await fetch("/api/v1/paypal/create-order", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ items }),
@@ -50,7 +50,7 @@ export function PayPalButton({ items }: PayPalButtonProps) {
             return data.orderId;
           }}
           onApprove={async (data) => {
-            const res = await fetch("/api/capture-paypal-order", {
+            const res = await fetch("/api/v1/paypal/capture-order", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ orderId: data.orderID }),

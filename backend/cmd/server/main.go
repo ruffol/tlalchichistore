@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,11 +10,14 @@ import (
 
 	"tlalchichi/market/internal/handler"
 	paypalclient "tlalchichi/market/internal/paypal"
+	"tlalchichi/market/internal/repository"
+	pgrepo "tlalchichi/market/internal/repository/postgres"
 	sqliterepo "tlalchichi/market/internal/repository/sqlite"
 	"tlalchichi/market/internal/service"
 )
 
 func main() {
+	dbURL := os.Getenv("DATABASE_URL")
 	dbPath := envOrDefault("DATABASE_PATH", "./data/market.db")
 	frontendDir := envOrDefault("FRONTEND_DIR", "./frontend/dist")
 	port := envOrDefault("PORT", "8080")
@@ -22,35 +26,52 @@ func main() {
 	paypalMode := envOrDefault("PAYPAL_MODE", "sandbox")
 	envioStr := envOrDefault("ENVIO_USD", "5")
 
-	// Ensure data directory exists
-	os.MkdirAll(filepath.Dir(dbPath), 0755)
+	var db *sql.DB
+	var categoriaRepo repository.CategoriaRepository
+	var productoRepo repository.ProductoRepository
+	var pedidoRepo repository.PedidoRepository
 
-	// Open database
-	db, err := sqliterepo.Open(dbPath)
-	if err != nil {
-		log.Fatalf("database: %v", err)
+	if dbURL != "" {
+		var err error
+		db, err = pgrepo.Open(dbURL)
+		if err != nil {
+			log.Fatalf("database: %v", err)
+		}
+		defer db.Close()
+
+		migrationsDir := envOrDefault("MIGRATIONS_DIR", "./migrations/postgres")
+		if err := pgrepo.RunMigrations(db, migrationsDir); err != nil {
+			log.Fatalf("migrations: %v", err)
+		}
+
+		categoriaRepo = pgrepo.NewCategoriaRepo(db)
+		productoRepo = pgrepo.NewProductoRepo(db)
+		pedidoRepo = pgrepo.NewPedidoRepo(db)
+	} else {
+		os.MkdirAll(filepath.Dir(dbPath), 0755)
+
+		var err error
+		db, err = sqliterepo.Open(dbPath)
+		if err != nil {
+			log.Fatalf("database: %v", err)
+		}
+		defer db.Close()
+
+		migrationsDir := envOrDefault("MIGRATIONS_DIR", "./migrations")
+		if err := sqliterepo.RunMigrations(db, migrationsDir); err != nil {
+			log.Fatalf("migrations: %v", err)
+		}
+
+		categoriaRepo = sqliterepo.NewCategoriaRepo(db)
+		productoRepo = sqliterepo.NewProductoRepo(db)
+		pedidoRepo = sqliterepo.NewPedidoRepo(db)
 	}
-	defer db.Close()
 
-	// Run migrations
-	migrationsDir := envOrDefault("MIGRATIONS_DIR", "./migrations")
-	if err := sqliterepo.RunMigrations(db, migrationsDir); err != nil {
-		log.Fatalf("migrations: %v", err)
-	}
-
-	// Calculate envio
 	var envio float64
 	if _, err := fmt.Sscanf(envioStr, "%f", &envio); err != nil {
 		envio = 5
 	}
 
-	// Repositories
-	categoriaRepo := sqliterepo.NewCategoriaRepo(db)
-	productoRepo := sqliterepo.NewProductoRepo(db)
-	pedidoRepo := sqliterepo.NewPedidoRepo(db)
-	sqliterepo.NewSettingsRepo(db) // available for future use
-
-	// PayPal
 	paypalAPI := "https://api-m.sandbox.paypal.com"
 	if paypalMode == "live" {
 		paypalAPI = "https://api-m.paypal.com"
@@ -58,13 +79,11 @@ func main() {
 	paypalClient := paypalclient.New(paypalClientID, paypalSecret, paypalAPI)
 	paypalSvc := service.NewPayPalService(paypalClient, pedidoRepo, envio)
 
-	// Handlers
 	categoriaH := handler.NewCategoriaHandler(categoriaRepo)
 	productoH := handler.NewProductoHandler(productoRepo)
 	pedidoH := handler.NewPedidoHandler(pedidoRepo)
 	paypalH := handler.NewPayPalHandler(paypalSvc, pedidoRepo)
 
-	// Router
 	allowedOrigins := []string{
 		"http://localhost:3000",
 		"http://localhost:5173",

@@ -2,8 +2,6 @@ import { VitrinaMuseo } from "@/components/VitrinaMuseo";
 import { piezas } from "@/lib/galeria-data";
 import { apiFetch } from "@/lib/api";
 
-export const dynamic = "force-dynamic";
-
 export const metadata = {
   title: "Tlalchichi777 — Artesanías colimenses auténticas",
   description:

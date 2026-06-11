@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	pgrepo "tlalchichi/market/internal/repository/postgres"
 	sqliterepo "tlalchichi/market/internal/repository/sqlite"
 )
 
@@ -15,17 +17,49 @@ func main() {
 		os.Exit(1)
 	}
 
+	dbURL := os.Getenv("DATABASE_URL")
 	dbPath := envOrDefault("DATABASE_PATH", "./data/market.db")
 	migrationsDir := envOrDefault("MIGRATIONS_DIR", "./migrations")
 
 	cmd := os.Args[1]
+
+	if dbURL != "" {
+		runPG(dbURL, cmd, os.Args[2:])
+	} else {
+		runSQLite(dbPath, migrationsDir, cmd, os.Args[2:])
+	}
+}
+
+func runPG(dbURL, cmd string, args []string) {
+	db, err := pgrepo.Open(dbURL)
+	if err != nil {
+		log.Fatalf("error abriendo DB: %v", err)
+	}
+	defer db.Close()
+
+	migrationsDir := envOrDefault("MIGRATIONS_DIR", "./migrations/postgres")
+
+	switch cmd {
+	case "migrate":
+		cmdMigratePG(db, migrationsDir)
+	case "seed":
+		cmdSeedPG(db)
+	case "export":
+		cmdExport(db, args)
+	default:
+		printUsage()
+		os.Exit(1)
+	}
+}
+
+func runSQLite(dbPath, migrationsDir, cmd string, args []string) {
 	switch cmd {
 	case "migrate":
 		cmdMigrate(dbPath, migrationsDir)
 	case "seed":
 		cmdSeed(dbPath)
 	case "export":
-		cmdExport(dbPath, os.Args[2:])
+		cmdExportSQLite(dbPath, args)
 	default:
 		printUsage()
 		os.Exit(1)
@@ -65,7 +99,20 @@ func cmdMigrate(dbPath, migrationsDir string) {
 	fmt.Println("migraciones completadas")
 }
 
-func cmdExport(dbPath string, args []string) {
+func cmdMigratePG(db *sql.DB, migrationsDir string) {
+	if err := pgrepo.RunMigrations(db, migrationsDir); err != nil {
+		log.Fatalf("error ejecutando migraciones: %v", err)
+	}
+	fmt.Println("migraciones completadas")
+}
+
+func cmdExportSQLite(dbPath string, args []string) {
+	db := openDB(dbPath)
+	defer db.Close()
+	cmdExport(db, args)
+}
+
+func cmdExport(db *sql.DB, args []string) {
 	format := "csv"
 	if len(args) > 0 {
 		switch args[0] {
@@ -76,9 +123,6 @@ func cmdExport(dbPath string, args []string) {
 			fmt.Fprintln(os.Stderr, "XLSX aún no implementado, usando CSV")
 		}
 	}
-
-	db := openDB(dbPath)
-	defer db.Close()
 
 	rows, err := db.Query(`
 		SELECT p.id, p.email, p.total, p.gateway, p.status, p.created_at,
@@ -116,4 +160,18 @@ func cmdExport(dbPath string, args []string) {
 				createdAt, email, total, status, prodName, qty, price, m, c)
 		}
 	}
+}
+
+func rebindQuery(query string) string {
+	var buf strings.Builder
+	n := 0
+	for i := 0; i < len(query); i++ {
+		if query[i] == '?' {
+			n++
+			fmt.Fprintf(&buf, "$%d", n)
+		} else {
+			buf.WriteByte(query[i])
+		}
+	}
+	return buf.String()
 }
